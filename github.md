@@ -422,11 +422,11 @@ To solve this we logout from our old account and login using new account and aft
 
 Commands to do so =>
 
-# gh auth status (for checking logged in user)
+gh auth status (for checking logged in user)
 
-# gh auth logout (for logging out )
+gh auth logout (for logging out )
 
-# gh auth login (for logging in )
+gh auth login (for logging in )
 
 => copy the code for vscode and paste it in the respected browser
 => after it do email verification and you are all set
@@ -438,27 +438,27 @@ Commands to do so =>
 => Let's say you staged(means just use git add command and not commit the changes) an unwanted file/folder (like .env or node modules) in the stagging area.
 => To restore / revert the changes , use command =>
 
-# git restore --stagged <file/folder name> or
+git restore --stagged <file/folder name> or
 
-# git reset <file/folder name>
+git reset <file/folder name>
 
 => this command restore changes
 
 > if you commit the changes , then above command is not going to work , you should use following commands
 
-# i) git rm --cached <file/folder name> or
+(i) git rm --cached <file/folder name> or
 
-# ii) git revert <commit id> ( it generate another commit )
+(ii) git revert <commit id> ( it generate another commit )
 
 > if you want that your new push should merged with previous commit and don't create a new commit , we use => git ammend command
 
-# git commit --ammend -m "<new message>"
+git commit --ammend -m "<new message>"
 
 ....
 
 > > > > > > > > > > > > > > > > > > > > [IMPORTANT] <<<<<<<<<<<<<<<<<
 
-# git pull vs git fetch
+#git pull vs git fetch
 
 > always try to use git fetch command because it download the changes from the remote but , don't merge with your existing repo , and after using git status , you can see the changes , and decide wether to merge that changes or not .
 > on the other hand git pull overwrite your code in the local machine
@@ -469,6 +469,6 @@ Commands to do so =>
 
 > To skip the staging area and directly push the code to remote , we use the command =>
 
-# git commit <filename> -m "<message>" >single file
+git commit <filename> -m "<message>" >single file
 
-# git commit -a -m "<message>" > all files
+git commit -a -m "<message>" > all files

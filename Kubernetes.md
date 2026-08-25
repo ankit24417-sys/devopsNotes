@@ -1,4 +1,35 @@
-# ☸️ Kubernetes (K8s) Comprehensive Notes
+# ☸️ Kubernetes (K8s) Comprehensive Notes & Reference Guide
+
+---
+
+## 📖 Table of Contents
+1. [What is Kubernetes (K8s)?](#1-what-is-kubernetes-k8s)
+2. [Kubernetes Architecture](#2-kubernetes-architecture)
+3. [Core Kubernetes Objects](#3-core-kubernetes-objects)
+4. [Declarative Manifests (YAML Files)](#4-declarative-manifests-yaml-files)
+   - [Pod Manifest (`pod.yaml`)](#a-pod-manifest-podyaml)
+   - [Namespace Manifest (`namespace.yaml`)](#b-namespace-manifest-namespaceyaml)
+   - [Deployment Manifest (`deployment.yaml`)](#c-deployment-manifest-deploymentyaml)
+   - [Service Manifest (`service.yaml`)](#d-service-manifest-serviceyaml)
+5. [Essential & Highlighted `kubectl` Commands](#5-essential--highlighted-kubectl-commands)
+   - [Imperative Creation & Exposing Pods](#a-imperative-creation--exposing-pods)
+   - [Viewing & Inspecting Resources](#b-viewing--inspecting-resources)
+   - [Logs & Debugging](#c-logs--debugging)
+   - [Scaling & Image Updates (Zero-Downtime Rollouts)](#d-scaling--image-updates-zero-downtime-rollouts)
+   - [Deleting Resources](#e-deleting-resources)
+6. [Workload Controllers (DaemonSets)](#6-workload-controllers-daemonsets)
+7. [Configuration & Secrets Management](#7-configuration--secrets-management)
+8. [Persistent Volumes & Data Persistence (PV & PVC)](#8-persistent-volumes--data-persistence-pv--pvc)
+9. [Ingress & Ingress Controllers](#9-ingress--ingress-controllers)
+10. [Auto-scaling & Resource Management (HPA, VPA, Requests & Limits)](#10-auto-scaling--resource-management-hpa-vpa-requests--limits)
+11. [Security & Access Control (RBAC & Service Accounts)](#11-security--access-control-rbac--service-accounts)
+12. [Node Management & Scheduling (Taints & Tolerations)](#12-node-management--scheduling-taints--tolerations)
+13. [Deployment Strategies & CI/CD](#13-deployment-strategies--cicd)
+14. [Helm (Kubernetes Package Manager)](#14-helm-kubernetes-package-manager)
+15. [Cluster Installation & Setup Guides (Kubeadm, Minikube, KIND, EKS)](#15-cluster-installation--setup-guides-kubeadm-minikube-kind-eks)
+16. [Monitoring & Observability (Metrics Server & Dashboard)](#16-monitoring--observability-metrics-server--dashboard)
+17. [Real-World Applications & Architecture](#17-real-world-applications--architecture)
+18. [Interview Questions & Key Answers](#18-interview-questions--key-answers)
 
 ---
 
@@ -20,15 +51,15 @@ While Docker allows you to package and run an application inside a container, ma
 
 ## 🏗️ 2. Kubernetes Architecture
 
-Kubernetes follows a **Master-Worker** architecture.
+Kubernetes follows a **Control Plane (Master Node) & Worker Node** architecture.
 
 ```mermaid
 graph TD
     subgraph Control Plane (Master Node)
-        API[API Server]
+        API[API Server - kube-apiserver]
         ETCD[(etcd Database)]
-        SCH[Scheduler]
-        CM[Controller Manager]
+        SCH[Scheduler - kube-scheduler]
+        CM[Controller Manager - kube-controller-manager]
     end
 
     subgraph Worker Node 1
@@ -53,130 +84,114 @@ graph TD
 ```
 
 ### A. Control Plane (Master Node)
-
 The brain of the cluster, responsible for making global decisions (like scheduling) and detecting/responding to cluster events.
 
-1.  **API Server (`kube-apiserver`)**: The entry point for all commands (via `kubectl` or API requests). Every component communicates through the API Server.
-2.  **etcd**: A highly available, distributed key-value store that holds the complete configuration and state of the cluster.
-3.  **Scheduler (`kube-scheduler`)**: Watches for newly created Pods and assigns them to optimal Worker Nodes based on resources (CPU, Memory).
-4.  **Controller Manager (`kube-controller-manager`)**: Runs background controllers to maintain the cluster state (e.g., Node Controller, Replication Controller).
+1. **API Server (`kube-apiserver`)**: The entry point for all commands (via `kubectl` or API requests). Every component communicates through the API Server.
+2. **etcd**: A highly available, distributed key-value store that holds the complete configuration and state of the cluster.
+3. **Scheduler (`kube-scheduler`)**: Watches for newly created Pods and assigns them to optimal Worker Nodes based on resources (CPU, Memory).
+4. **Controller Manager (`kube-controller-manager`)**: Runs background controllers to maintain the cluster state (e.g., Node Controller, Replication Controller).
 
 ### B. Worker Nodes
-
 The machines (VMs or physical servers) where your application containers actually run.
 
-1.  **Kubelet**: An agent running on each worker node. It ensures that containers are running in a Pod as described in the manifest.
-2.  **Kube-Proxy (`kube-proxy`)**: Manages network routing rules on nodes to enable communication inside and outside the cluster.
-3.  **Container Runtime**: The software responsible for running containers (e.g., `containerd`, `CRI-O`, or `Docker`).
+1. **Kubelet**: An agent running on each worker node. It ensures that containers are running in a Pod as described in the manifest.
+2. **Kube-Proxy (`kube-proxy`)**: Manages network routing rules on nodes to enable communication inside and outside the cluster.
+3. **Container Runtime**: The software responsible for running containers (e.g., `containerd`, `CRI-O`, or `Docker`).
 
 ---
 
 ## 🗂️ 3. Core Kubernetes Objects
 
-| Object         | Description                                                                                                               |
-| :------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **Pod**        | The smallest deployable unit in Kubernetes. Contains one or more containers (usually one) that share storage and network. |
-| **ReplicaSet** | Ensures that a specified number of Pod replicas are running at any given time.                                            |
-| **Deployment** | A higher-level object that manages ReplicaSets and Pods. Supports declarative updates (rolling updates/rollbacks).        |
-| **Service**    | Defines a logical set of Pods and a policy to access them (Load Balancer, internal IP, etc.).                             |
-| **Namespace**  | Virtual clusters inside a physical cluster to isolate resources (e.g., `dev`, `staging`, `prod`).                         |
+| Object | Description |
+| :--- | :--- |
+| **Pod** | The smallest deployable unit in Kubernetes. Contains one or more containers sharing network and storage. |
+| **ReplicaSet** | Ensures a specified number of identical Pod replicas are running at any given time. |
+| **Deployment** | Manages ReplicaSets and Pods. Supports declarative updates (rolling updates/rollbacks). |
+| **Service** | Defines a logical set of Pods and a policy to access them (LoadBalancer, NodePort, ClusterIP). |
+| **Namespace** | Virtual clusters inside a physical cluster to isolate resources (e.g., `dev`, `staging`, `prod`). |
+| **DaemonSet** | Ensures that a copy of a Pod runs on all (or selected) worker nodes. |
+| **Ingress** | HTTP/HTTPS router managing external access to services inside the cluster. |
+| **ConfigMap / Secret** | Stores non-confidential configuration or encrypted sensitive data (passwords/keys). |
+| **PV / PVC** | Persistent storage resources for retaining data across container restarts. |
 
 ---
 
-## Creation of Pods
-
-Pods is a single instance of running process in cluster.
-It can run one or more container and share the shame resources.
-
-> To create a pod use the command =>
-
-# kubectl create deployment <image-name > --image=<dockerhub-image>:<tag(optional)>
-
-eg> kubectl create deployment my-app --image=nginx
-
-> To see the state and status of pods use command =>
-
-# kubectl get pods
-
-## Exposing pod to access it
-
-=> Since our app is running in the container which is running inside pod which is running inside cluster ,
-=> to expose it, we use the commands =>
-
-# i) kubectl expose deployment <created app name> --port=<port> --type=<type of app eg. loadbalancer>
-
-# ii) minikube get services
-
-command 2 will give you a url for that container
-
-## Checking the running services
-
-=> To check the running services in k8s we use command =>
-
-# kubectl get services
-
-## To check the logs
-
-=> To check the logs/info we use the command =>
-
-# i) kubectl logs <pods name with id>
-
-# ii) kubectl describe pods
-
-[IMPORTANT]
-
-> Let's say our website it running and we made some changes and create a new docker image and want to make it live , but it could lead to downtime for our website to deal with we use k8s .
-> K8S make old website live until , our new docker container full executable and after it automatically terminate the old one
-
-# commands used for this
-
-# kubectl set image deployments <name of running web app> <name of new image's container>=<new docker image>
-
-# How to handle Error in deployment
-
-Let's at the time of deploying another docker image , some error happens , then k8s keep running the previous container and waiting for new one , since new one is corrupted , it will be never fetched
-to handle this we rollout our changes
-
-> following commands are used to do so
-
-# kubectl rollout status deployment <name of deployed app>
-
-# kubectl rollout undo deployment <name of deployed app>
-
-## Scaling in kubernetes
-
-> We can create multiple instance of one docker container using k8s
-> scaling has two main benefits
-> i) It prevents down time
-> ii) Manage trafic properly
-> => To scale , we use the command =>
-
-# kubectl scale deployment <name of deployed app> --replicas=<number>
-
-> If you want to increase/decrease replicas use same command and change no
-
-## 📄 4. Declarative Manifests (YAML)
+## 📄 4. Declarative Manifests (YAML Files)
 
 Kubernetes objects are created using YAML configurations. Every manifest has four mandatory root fields:
+1. `apiVersion`: Which version of the Kubernetes API to use.
+2. `kind`: The type of object you want to create (e.g., `Pod`, `Deployment`, `Service`).
+3. `metadata`: Data identifying the object (`name`, `labels`, `namespace`).
+4. `spec`: The desired state or configuration of the object.
 
-1.  `apiVersion`: Which version of the Kubernetes API to use.
-2.  `kind`: The type of object you want to create (e.g., `Pod`, `Deployment`, `Service`).
-3.  `metadata`: Data that helps uniquely identify the object (e.g., `name`, `labels`, `namespace`).
-4.  `spec`: The desired state or configuration of the object.
+### A. Pod Manifest (`pod.yaml`)
+A single NGINX pod manifest with resource requests & limits and liveness/readiness health probes:
 
-### Example: Deployment Manifest (`deployment.yaml`)
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  namespace: default
+  labels:
+    app: nginx-web
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:1.25.4-alpine
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        cpu: "100m"      # Guaranteed 0.1 CPU core
+        memory: "128Mi"  # Guaranteed 128 MB RAM
+      limits:
+        cpu: "500m"      # Maximum 0.5 CPU core
+        memory: "256Mi"  # Maximum 256 MB RAM
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 15
+      periodSeconds: 20
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 10
+```
 
-This deploys 3 replicas of an Nginx web server container:
+### B. Namespace Manifest (`namespace.yaml`)
+Isolates environments within the cluster:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    environment: production
+```
+
+### C. Deployment Manifest (`deployment.yaml`)
+Deploys 3 replicas of NGINX with zero-downtime rolling update strategy:
 
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-deployment
+  namespace: production
   labels:
     app: nginx
 spec:
   replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: nginx
@@ -186,328 +201,228 @@ spec:
         app: nginx
     spec:
       containers:
-        - name: nginx
-          image: nginx:1.21.6
-          ports:
-            - containerPort: 80
+      - name: nginx
+        image: nginx:1.25.4-alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
 ```
 
-### Example: Service Manifest (`service.yaml`)
-
-Exposes the above Nginx deployment internally or externally:
+### D. Service Manifest (`service.yaml`)
+Exposes NGINX pods to internal or external traffic:
 
 ```yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: nginx-service
+  namespace: production
 spec:
+  type: ClusterIP   # Options: ClusterIP (Internal), NodePort, LoadBalancer
   selector:
-    app: nginx # Targets Pods with label "app: nginx"
+    app: nginx      # Matches Pods with label "app: nginx"
   ports:
-    - protocol: TCP
-      port: 80 # Port exposed by the Service
-      targetPort: 80 # Port running inside the Pod
-  type: ClusterIP # Internal-only IP (default)
+  - protocol: TCP
+    port: 80        # Service port
+    targetPort: 80  # Container port
 ```
 
 ---
 
-## 🛠️ 5. Essential `kubectl` Commands
+## 🛠️ 5. Essential & Highlighted `kubectl` Commands
 
-`kubectl` is the command-line interface for running commands against Kubernetes clusters.
+`kubectl` is the command-line tool used to control Kubernetes clusters.
 
-### A. Creating & Applying Resources
+### A. Imperative Creation & Exposing Pods
 
 ```bash
-# Apply a YAML file to create/update resources
-kubectl apply -f <deployment file name.yaml>
+# 🔹 Create a Deployment directly (Imperative)
+kubectl create deployment my-app --image=nginx:1.25.4-alpine
 
-# Create resources directly (imperative)
-kubectl create namespace development
+# 🔹 Create a Pod directly
+kubectl run nginx-pod --image=nginx:1.25.4-alpine --port=80
+
+# 🔹 Expose Deployment as a Service (NodePort or LoadBalancer)
+kubectl expose deployment my-app --port=80 --target-port=80 --type=NodePort
+
+# 🔹 Get URL for exposed service on Minikube
+minikube service my-app --url
 ```
 
-### B. Viewing Status (Get)
+### B. Viewing & Inspecting Resources
 
 ```bash
-# List all Pods in the default namespace
+# 🔹 List all Pods in the default namespace
 kubectl get pods
 
-# List all Pods with detailed info (IPs, Nodes)
+# 🔹 List all Pods with details (IP address, Node name)
 kubectl get pods -o wide
 
-# Watch Pod changes in real-time
+# 🔹 Watch Pod creation in real-time
 kubectl get pods -w
 
-# Get all Deployments
-kubectl get deployments
+# 🔹 List resources across ALL namespaces
+kubectl get pods -A
+kubectl get svc -A
+kubectl get all -n production
 
-# Get all Services
-kubectl get services
+# 🔹 Describe detailed metadata & events of a Pod (Great for debugging!)
+kubectl describe pod <pod-name>
 ```
 
-### C. Troubleshooting & Logs
+### C. Logs & Debugging
 
 ```bash
-# Describe detailed status of a specific Pod
-kubectl describe pod <pod-name>
-
-# View logs of a running container in a Pod
+# 🔹 View application logs of a Pod
 kubectl logs <pod-name>
 
-# Stream logs of a running container in real-time
-kubectl logs -f <pod-name>
+# 🔹 Follow/stream live logs from a Pod
+kubectl logs -f <pod-name> --tail=50
 
-# Access terminal inside a running container
-kubectl exec -it <pod-name> -- /bin/bash
+# 🔹 Open an interactive shell inside a running Pod container
+kubectl exec -it <pod-name> -- /bin/sh
+
+# 🔹 Forward local port 8080 to Pod port 80
+kubectl port-forward pod/<pod-name> 8080:80
 ```
 
-### D. Deleting Resources
+### D. Scaling & Image Updates (Zero-Downtime Rollouts)
 
 ```bash
-# Delete resource using a YAML file
+# 🔹 Scale Deployment replicas up or down
+kubectl scale deployment my-app --replicas=5
+
+# 🔹 Update container image (Trigger Rolling Update)
+kubectl set image deployment/my-app nginx=nginx:1.25.5-alpine
+
+# 🔹 Check status of rolling update
+kubectl rollout status deployment/my-app
+
+# 🔹 View deployment revision history
+kubectl rollout history deployment/my-app
+
+# 🔹 Roll back to previous working version if update fails
+kubectl rollout undo deployment/my-app
+
+# 🔹 Roll back to a specific revision number
+kubectl rollout undo deployment/my-app --to-revision=2
+```
+
+### E. Deleting Resources
+
+```bash
+# 🔹 Delete resource via YAML manifest
 kubectl delete -f deployment.yaml
 
-# Delete a specific Pod
+# 🔹 Delete a specific Pod
 kubectl delete pod <pod-name>
+
+# 🔹 Delete a Deployment and its associated Pods
+kubectl delete deployment my-app
 ```
 
 ---
 
-## Running multiple containers using kubernetes
+## 🔄 6. Workload Controllers (DaemonSets)
 
-> To run multiple containers , we can use two methods
-> i) running all containers in single pod
-> ii) running all contaiers in different-2 pods (recommended)
+A **DaemonSet** ensures that all (or specific) worker nodes run a copy of a Pod. As nodes join the cluster, Pods are automatically added to them.
 
-## 🚀 6. Deploying on AWS EKS (Elastic Kubernetes Service)
+### Use Cases:
+- Cluster monitoring agents (`prometheus-node-exporter`).
+- Log collection daemons (`fluentbit`, `fluentd`).
+- Networking plugins (`calico`, `cilium`).
 
-Here is a step-by-step guide to deploying a custom Dockerized application onto AWS EKS.
-
-```mermaid
-flowchart TD
-    A[Build Local Docker Image] --> B[Push to AWS ECR]
-    B --> C[Create EKS Cluster]
-    C --> D[Deploy to EKS using kubectl]
-    D --> E[Expose via LoadBalancer Service]
-```
-
-### Prerequisites
-
-Make sure you have the following CLI tools installed:
-
-1.  **AWS CLI**: `aws configure` (logged in with sufficient IAM permissions).
-2.  **eksctl**: Official CLI tool for creating and managing EKS clusters.
-3.  **kubectl**: Kubernetes command line tool.
-
----
-
-### Step 1: Create an ECR (Elastic Container Registry) & Push your Docker Image
-
-Before EKS can download your image, it must be hosted in a registry like AWS ECR.
-
-```bash
-# 1. Create a repository on ECR
-aws ecr create-repository --repository-name my-web-app --region us-east-1
-
-# 2. Login Docker to your ECR registry (replace AWS Account ID)
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-
-# 3. Build your local Docker image
-docker build -t my-web-app .
-
-# 4. Tag the image for ECR
-docker tag my-web-app:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/my-web-app:latest
-
-# 5. Push the image to AWS ECR
-docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/my-web-app:latest
-```
-
----
-
-### Step 2: Create the EKS Cluster
-
-Use `eksctl` to quickly spin up a production-ready Kubernetes cluster on AWS.
-
-```bash
-eksctl create cluster \
-  --name my-eks-cluster \
-  --region us-east-1 \
-  --nodegroup-name standard-workers \
-  --node-type t3.medium \
-  --nodes 3 \
-  --nodes-min 1 \
-  --nodes-max 4 \
-  --managed
-```
-
-> [!NOTE]
-> This command will automatically set up VPC, subnets, Security Groups, EC2 Worker Nodes, and configure your local `kubectl` to point to the new cluster. This process takes 15–20 minutes.
-
-Verify cluster connection:
-
-```bash
-kubectl get nodes
-```
-
----
-
-### Step 3: Write EKS Deployment & Service Manifests
-
-Create a manifest file named `eks-app.yaml`:
+### DaemonSet Manifest (`daemonset.yaml`):
 
 ```yaml
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: my-app-deployment
-  labels:
-    app: my-app
+  name: fluentbit-logging
+  namespace: kube-system
 spec:
-  replicas: 2
   selector:
     matchLabels:
-      app: my-app
+      name: fluentbit
   template:
     metadata:
       labels:
-        app: my-app
+        name: fluentbit
     spec:
       containers:
-        - name: my-app-container
-          # Reference the image we pushed to ECR:
-          image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/my-web-app:latest
-          ports:
-            - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-app-service
-spec:
-  selector:
-    app: my-app
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8080
-  # LoadBalancer type provisions an AWS Classic/Application Load Balancer (ALB)
-  type: LoadBalancer
+      - name: fluentbit
+        image: fluent/fluent-bit:2.2.0
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
 ```
 
 ---
 
-### Step 4: Apply to EKS Cluster
+## ⚡ 7. Configuration & Secrets Management
 
-Deploy the application and service onto your cluster:
+Decouple configuration parameters and sensitive credentials from container images.
 
-```bash
-kubectl apply -f eks-app.yaml
-```
-
-Check the status of your pods:
-
-```bash
-kubectl get pods
-```
-
----
-
-### Step 5: Get Public Load Balancer URL
-
-Because the service type is `LoadBalancer`, AWS automatically spins up a cloud load balancer.
-
-```bash
-kubectl get service my-app-service
-```
-
-Locate the **EXTERNAL-IP** column. It will show a long DNS name (e.g., `a1a2a3a4...us-east-1.elb.amazonaws.com`).
-
-Open this DNS URL in your browser to access your live application!
-
----
-
-### Step 6: Cleanup EKS Resources
-
-To avoid ongoing AWS charges, clean up your cluster once finished:
-
-```bash
-# Delete Kubernetes resources
-kubectl delete -f eks-app.yaml
-
-# Delete the EKS Cluster
-eksctl delete cluster --name my-eks-cluster --region us-east-1
-```
-
----
-
-## ⚡ 7. ConfigMaps and Secrets
-
-To keep your code flexible and secure, decouple configurations and sensitive data from your images.
-
-### A. ConfigMaps (Non-confidential configurations)
-
-Use ConfigMaps to inject environment variables or files into your container.
+### A. ConfigMap (`configmap.yaml`)
+Stores non-confidential configuration parameters in key-value pairs:
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
+  namespace: default
 data:
-  DB_HOST: "database.production.internal"
-  APP_THEME: "dark"
+  DB_HOST: "mysql-service"
+  APP_ENV: "production"
 ```
 
-### B. Secrets (Confidential credentials/passwords)
-
-Secrets store sensitive information like passwords, API keys, and certificates encoded in base64.
+### B. Secret (`secret.yaml`)
+Stores passwords, API tokens, and TLS certificates encoded in base64:
 
 ```yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: app-db-secret
+  name: db-secret
+  namespace: default
 type: Opaque
-data:
-  # Base64 encoded values for security (e.g. echo -n 'mypassword' | base64)
-  DB_PASSWORD: bXlwYXNzd29yZA==
+stringData:
+  DB_PASSWORD: "SuperSecretPassword123!"
 ```
 
-### Injecting ConfigMaps and Secrets into a Pod Deployment:
+### Useful Commands:
+```bash
+# 🔹 Create ConfigMap from CLI
+kubectl create configmap app-config --from-literal=DB_HOST=mysql-service
 
-```yaml
-spec:
-  containers:
-    - name: app-container
-      image: my-app
-      env:
-        - name: DATABASE_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: DB_HOST
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: app-db-secret
-              key: DB_PASSWORD
+# 🔹 Create Secret from CLI
+kubectl create secret generic db-secret --from-literal=DB_PASSWORD=SuperSecret123!
 ```
 
 ---
 
-## 💾 8. Persistent Volumes (Data Persistence)
+## 💾 8. Persistent Volumes & Data Persistence (PV & PVC)
 
-In Kubernetes, Pods are temporary (ephemeral). If a Pod dies, its internal files are lost. To persist database files or uploads, use Volumes.
+Pods are temporary (ephemeral). If a database pod restarts, its internal disk is wiped clean. Persistent Storage solves this.
 
-- **PersistentVolume (PV)**: A piece of storage in the cluster provisioned by an administrator or dynamically provisioned using AWS EBS/EFS.
-- **PersistentVolumeClaim (PVC)**: A request for storage by a user/Pod.
+- **PersistentVolume (PV)**: Cluster-level storage resource provisioned manually or dynamically.
+- **PersistentVolumeClaim (PVC)**: Storage request submitted by a Pod.
 
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: postgres-pvc
+  name: mysql-pvc
 spec:
   accessModes:
     - ReadWriteOnce
@@ -516,18 +431,338 @@ spec:
       storage: 10Gi
 ```
 
-In your deployment spec, mount the PVC to the container:
+---
+
+## 🌐 9. Ingress & Ingress Controllers
+
+### ❓ What is Ingress?
+**Ingress** acts as a smart entry gateway / router for your Kubernetes cluster. It exposes HTTP and HTTPS routes from outside the cluster to internal Services based on domain names (`example.com`) or path rules (`/api`).
+
+```
+Internet --> [ Ingress Controller ] --> Ingress Rules --> Service --> Pods
+```
+
+### Setup Ingress Controller via Helm:
+
+```bash
+# 🔹 Add NGINX Ingress Repository
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+# 🔹 Install Ingress Controller
+helm install ingress-nginx ingress-nginx/ingress-nginx
+```
+
+### Ingress Manifest (`ingress.yaml`):
 
 ```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
-  volumes:
-    - name: db-storage
-      persistentVolumeClaim:
-        claimName: postgres-pvc
-  containers:
-    - name: postgres
-      image: postgres:15
-      volumeMounts:
-        - mountPath: /var/lib/postgresql/data
-          name: db-storage
+  rules:
+  - host: myapp.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-service
+            port:
+              number: 80
 ```
+
+---
+
+## 📈 10. Auto-scaling & Resource Management (HPA, VPA, Requests & Limits)
+
+### A. Resource Requests & Limits
+- **Requests**: Guaranteed resource allocation needed for scheduling.
+- **Limits**: Maximum ceiling allowed before CPU throttling or OOM (Out Of Memory) Pod termination.
+
+### B. Horizontal Pod Autoscaler (HPA)
+Automatically increases or decreases the number of Pod replicas based on CPU or Memory usage.
+
+```bash
+# 🔹 Enable HPA imperatively (Target 70% CPU usage, 2 to 10 replicas)
+kubectl autoscale deployment nginx-deployment --cpu-percent=70 --min=2 --max=10
+```
+
+#### HPA Manifest (`hpa.yaml`):
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+### C. Vertical Pod Autoscaler (VPA)
+Automatically adjusts container CPU and Memory requests/limits based on actual historical usage.
+
+```yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: nginx-vpa
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-deployment
+  updatePolicy:
+    updateMode: "Auto"
+```
+
+---
+
+## 🔐 11. Security & Access Control (RBAC & Service Accounts)
+
+**Role-Based Access Control (RBAC)** regulates access to cluster resources based on roles.
+
+- **ServiceAccount**: Identity given to Pods to interact with the K8s API server.
+- **Role**: Namespaced set of permissions (`get`, `list`, `create`, `delete` on `pods`).
+- **RoleBinding**: Connects a Role to a ServiceAccount or User.
+
+### RBAC Manifest (`rbac.yaml`):
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-reader-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader-role
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods-binding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: pod-reader-sa
+  namespace: default
+roleRef:
+  kind: Role
+  name: pod-reader-role
+  apiGroup: rbac.authorization.k8s.io
+```
+
+---
+
+## 🚫 12. Node Management & Scheduling (Taints & Tolerations)
+
+- **Taint**: Applied to a **Node** to repel Pods from scheduling on it unless they carry a matching toleration.
+- **Toleration**: Applied to a **Pod** allowing it to schedule on tainted nodes.
+
+### Useful Commands:
+```bash
+# 🔹 Add Taint to Node (Pods won't schedule unless they tolerate gpu=true)
+kubectl taint nodes node1 dedicated=gpu:NoSchedule
+
+# 🔹 Remove Taint from Node
+kubectl taint nodes node1 dedicated=gpu:NoSchedule-
+```
+
+### Toleration Pod Spec (`toleration-pod.yaml`):
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-pod
+spec:
+  containers:
+  - name: cuda-container
+    image: nvidia/cuda:12.0.0-base-ubuntu22.04
+  tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "gpu"
+    effect: "NoSchedule"
+```
+
+---
+
+## 🚀 13. Deployment Strategies & CI/CD
+
+| Strategy | Downtime | Description |
+| :--- | :--- | :--- |
+| **Rolling Update** | Zero | Replaces old pods with new pods incrementally. (K8s Default) |
+| **Recreate** | Yes | Kills all old pods first before starting new pods. |
+| **Blue-Green** | Zero | Deploys 2 identical environments (Blue & Green), switches service selector. |
+| **Canary** | Zero | Sends 10% of traffic to new version (Canary) to test stability before full rollout. |
+
+### CI/CD Pipeline Flow with K8s:
+1. Developer pushes code to GitHub.
+2. CI tool (GitHub Actions / GitLab CI) runs tests, builds Docker image, and scans for vulnerabilities.
+3. Image pushed to Docker Hub / AWS ECR.
+4. CD tool (ArgoCD / Helm) updates deployment manifest tags and applies changes cleanly to Kubernetes.
+
+---
+
+## ⚓ 14. Helm (Kubernetes Package Manager)
+
+### ❓ What is Helm?
+**Helm** is the official package manager for Kubernetes. Just as `apt` is for Ubuntu, `yum` is for RHEL, or `npm` is for Node.js, Helm simplifies how you define, install, upgrade, and manage applications in a Kubernetes cluster using pre-packaged resource bundles called **Helm Charts**.
+
+### 🛠️ Essential Helm Commands:
+
+```bash
+# 🔹 Add a repository
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+# 🔹 Install a chart
+helm install my-release bitnami/nginx
+
+# 🔹 Upgrade a chart
+helm upgrade my-release bitnami/nginx -f custom-values.yaml
+
+# 🔹 Rollback release to revision 1
+helm rollback my-release 1
+
+# 🔹 List releases
+helm list -A
+```
+
+---
+
+## 🚀 15. Cluster Installation & Setup Guides (Kubeadm, Minikube, KIND, EKS)
+
+### A. Minikube (Local Single-Node Cluster)
+```bash
+# 🔹 Start Minikube
+minikube start --driver=docker --cpus=4 --memory=8192
+
+# 🔹 Enable Addons
+minikube addons enable ingress
+minikube addons enable metrics-server
+```
+
+### B. KIND (Kubernetes in Docker - Multi-Node)
+```bash
+# 🔹 Create cluster with KIND
+kind create cluster --name dev-cluster
+```
+
+### C. AWS EKS Deployment (Step-by-Step Guide)
+
+```mermaid
+flowchart TD
+    A[Build Local Docker Image] --> B[Push to AWS ECR]
+    B --> C[Create EKS Cluster via eksctl]
+    C --> D[Deploy to EKS using kubectl]
+    D --> E[Expose via LoadBalancer Service]
+```
+
+```bash
+# 1. Create ECR Repository
+aws ecr create-repository --repository-name my-web-app --region us-east-1
+
+# 2. Docker Login to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+
+# 3. Build, Tag & Push Docker Image
+docker build -t my-web-app .
+docker tag my-web-app:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/my-web-app:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/my-web-app:latest
+
+# 4. Spin up EKS Cluster via eksctl
+eksctl create cluster \
+  --name my-eks-cluster \
+  --region us-east-1 \
+  --nodegroup-name standard-workers \
+  --node-type t3.medium \
+  --nodes 3 \
+  --managed
+
+# 5. Apply Deployment & LoadBalancer Service
+kubectl apply -f eks-app.yaml
+```
+
+---
+
+## 📊 16. Monitoring & Observability (Metrics Server & Dashboard)
+
+### A. Metrics Server
+Required for `kubectl top` commands and Horizontal Pod Autoscaling (HPA).
+
+```bash
+# 🔹 Deploy Metrics Server
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# 🔹 Check CPU and Memory consumption
+kubectl top nodes
+kubectl top pods
+```
+
+### B. Kubernetes Dashboard
+Web-based UI for managing Kubernetes resources.
+
+```bash
+# 🔹 Deploy Dashboard
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+
+# 🔹 Generate bearer token for login
+kubectl -n kubernetes-dashboard create token admin-user
+
+# 🔹 Start Proxy server locally
+kubectl proxy
+```
+
+---
+
+## 🏢 17. Real-World Applications & Architecture
+
+### Complete Multi-Tier Application Architecture:
+- **Frontend**: NGINX Web Server (`Deployment` + `LoadBalancer Service`).
+- **Backend**: Node.js/Python API (`Deployment` + `ClusterIP Service`).
+- **Database**: MySQL/PostgreSQL (`StatefulSet` + `PVC` + `Secret` + `ConfigMap` + `Headless Service`).
+
+---
+
+## ❓ 18. Interview Questions & Key Answers
+
+#### Q1: What is the main role of `etcd` in Kubernetes?
+**Answer**: `etcd` is a distributed, consistent key-value store that serves as the single source of truth for all cluster configuration and state data.
+
+#### Q2: What is the difference between `Deployment` and `StatefulSet`?
+**Answer**: Deployments manage **stateless** applications with interchangeable pods and random IDs. StatefulSets manage **stateful** applications with unique, ordered, sticky pod identities (`mysql-0`, `mysql-1`) and dedicated storage claims.
+
+#### Q3: What happens when a Pod's Memory exceeds its defined `limit`?
+**Answer**: The container is immediately terminated by the Linux kernel OOM (Out Of Memory) Killer with exit code 137, and `kubelet` restarts it.
+
+#### Q4: What is the difference between `ClusterIP`, `NodePort`, and `LoadBalancer`?
+**Answer**:
+- `ClusterIP`: Internal-only IP accessible inside the cluster.
+- `NodePort`: Exposes service on a static port (30000-32767) on all node IP addresses.
+- `LoadBalancer`: Provisions a cloud provider's external load balancer (e.g. AWS ALB/ELB).

@@ -5,15 +5,22 @@ Welcome to the **Interactive YAML Reference Guide**. This document is designed t
 ---
 
 ## 📋 Table of Contents
-1. [Indentation & Basic Syntax](#1-indentation--basic-syntax)
-2. [YAML Strings Demystified](#2-yaml-strings-demystified)
-3. [Objects vs Lists](#3-objects-vs-lists)
-4. [Nested & Mixed Structures](#4-nested--mixed-structures)
-5. [Advanced Features (Anchors & Aliases)](#5-advanced-features-anchors--aliases)
-6. [Boolean Gotchas](#6-boolean-gotchas)
-7. [DevOps Real-World Configurations](#7-devops-real-world-configurations)
-8. [🧠 Interactive YAML Quiz](#-interactive-yaml-quiz)
-9. [🛠️ Hands-On Practice Exercises](#️-hands-on-practice-exercises)
+
+- [🧠 Interactive YAML Masterclass \& DevOps Reference Guide](#-interactive-yaml-masterclass--devops-reference-guide)
+  - [📋 Table of Contents](#-table-of-contents)
+  - [1. Indentation \& Basic Syntax](#1-indentation--basic-syntax)
+    - [Key Rules](#key-rules)
+  - [2. YAML Strings Demystified](#2-yaml-strings-demystified)
+    - [Interactive Showcase](#interactive-showcase)
+  - [3. Objects vs Lists](#3-objects-vs-lists)
+    - [A. Dictionaries (Mappings)](#a-dictionaries-mappings)
+    - [B. Lists (Sequences)](#b-lists-sequences)
+  - [4. Nested \& Mixed Structures](#4-nested--mixed-structures)
+  - [5. Advanced Features (Anchors \& Aliases)](#5-advanced-features-anchors--aliases)
+  - [6. Boolean Gotchas](#6-boolean-gotchas)
+  - [7. DevOps Real-World Configurations](#7-devops-real-world-configurations)
+    - [Case A: Docker Compose Structure](#case-a-docker-compose-structure)
+    - [Case B: Multi-Document Kubernetes Configuration](#case-b-multi-document-kubernetes-configuration)
 
 ---
 
@@ -22,7 +29,9 @@ Welcome to the **Interactive YAML Reference Guide**. This document is designed t
 YAML is extremely sensitive to structure. It uses spacing to represent data hierarchy.
 
 ### Key Rules
+
 > [!IMPORTANT]
+>
 > - **Case Sensitivity:** YAML is case-sensitive (`ports` is different from `Ports`).
 > - **Spaces ONLY:** **NEVER** use tabs for indentation. Doing so will crash your parser immediately.
 > - **Spacing after Colons:** Key-value pairs must have a space after the colon: `key: value` (Not `key:value`).
@@ -41,15 +50,16 @@ indentation_example:
 
 YAML gives you multiple ways to write strings, each serving a different purpose:
 
-| String Style | Syntax Example | Behavior / Escape Sequences | Best Use Case |
-| :--- | :--- | :--- | :--- |
-| **Bare (Unquoted)** | `DevOps is awesome` | Cannot contain special symbols like `:`, `#`, `{`, etc. | Simple values, labels |
-| **Single-Quoted** | `'This \n will not escape'` | Literal content. Treats `\n` as literal text. | Regex patterns, paths |
-| **Double-Quoted** | `"This \n will escape"` | Processes escape characters (e.g. `\n` inserts a newline). | Text requiring tabs/newlines |
-| **Literal Block (`\|`)** | `|` (followed by lines) | Keeps every newline and trailing whitespace exactly as typed. | Scripts, multi-line commands |
-| **Folded Block (`>`)** | `>` (followed by lines) | Collapses single newlines into spaces (reads as one paragraph). | Long descriptions, paragraphs |
+| String Style             | Syntax Example              | Behavior / Escape Sequences                                     | Best Use Case                                                 |
+| :----------------------- | :-------------------------- | :-------------------------------------------------------------- | :------------------------------------------------------------ | ---------------------------- |
+| **Bare (Unquoted)**      | `DevOps is awesome`         | Cannot contain special symbols like `:`, `#`, `{`, etc.         | Simple values, labels                                         |
+| **Single-Quoted**        | `'This \n will not escape'` | Literal content. Treats `\n` as literal text.                   | Regex patterns, paths                                         |
+| **Double-Quoted**        | `"This \n will escape"`     | Processes escape characters (e.g. `\n` inserts a newline).      | Text requiring tabs/newlines                                  |
+| **Literal Block (`\|`)** | `                           | ` (followed by lines)                                           | Keeps every newline and trailing whitespace exactly as typed. | Scripts, multi-line commands |
+| **Folded Block (`>`)**   | `>` (followed by lines)     | Collapses single newlines into spaces (reads as one paragraph). | Long descriptions, paragraphs                                 |
 
 ### Interactive Showcase
+
 <details>
 <summary>💡 Click to view the YAML String Examples</summary>
 
@@ -58,14 +68,14 @@ strings_showcase:
   bare_string: DevOps is awesome
   single_quoted: 'This \n will not escape to a new line'
   double_quoted: "This \n will escape to a new line"
-  
+
   # Block Literal (|): keeps every newline exactly as typed
   literal_multiline_script: |
     #!/bin/bash
     echo "Running build step..."
     npm install
     npm run test
-  
+
   # Block Folded (>): collapses lines into a single paragraph
   folded_multiline_text: >
     This is a very long sentence
@@ -74,6 +84,7 @@ strings_showcase:
     readability, but we want the parser
     to read it as one single line.
 ```
+
 </details>
 
 ---
@@ -83,6 +94,7 @@ strings_showcase:
 In YAML, you can represent collections of data using either **Dictionaries (Objects)** or **Lists (Sequences)**. Both support **Block Style** (vertical) and **Flow Style** (inline, JSON-like).
 
 ### A. Dictionaries (Mappings)
+
 Maps keys to values.
 
 ```yaml
@@ -94,10 +106,17 @@ dictionary_block_style:
   cpu_cores: 4
 
 # Flow Style (JSON-like)
-dictionary_flow_style: { name: "Staging Server", ip_address: "192.168.1.101", status: "idle", cpu_cores: 2 }
+dictionary_flow_style:
+  {
+    name: "Staging Server",
+    ip_address: "192.168.1.101",
+    status: "idle",
+    cpu_cores: 2,
+  }
 ```
 
 ### B. Lists (Sequences)
+
 Ordered collections of items.
 
 ```yaml
@@ -109,7 +128,7 @@ list_block_style:
   - "jenkins"
 
 # Flow Style (Uses square brackets)
-list_flow_style: [ "nginx", "docker", "kubernetes", "jenkins" ]
+list_flow_style: ["nginx", "docker", "kubernetes", "jenkins"]
 ```
 
 ---
@@ -164,6 +183,7 @@ dictionary_of_lists:
 ## 5. Advanced Features (Anchors & Aliases)
 
 To keep your files **DRY (Don't Repeat Yourself)**, YAML provides **Anchors (`&`)** and **Aliases (`*`)**.
+
 - The Anchor `&` marks a block of code to copy.
 - The Alias `*` references and inserts the marked block.
 - The Merge Key `<<: *anchor` merges the keys of the referenced block into the current dictionary.
@@ -196,12 +216,12 @@ database_services:
     container_name: "db_primary"
     ports:
       - "5432:5432"
-  
+
   postgres_replica:
     <<: *db_defaults
     container_name: "db_replica"
     environment:
-      POSTGRES_USER: "replica_user"  # Overrides the default POSTGRES_USER
+      POSTGRES_USER: "replica_user" # Overrides the default POSTGRES_USER
       POSTGRES_DB: "myapp"
 ```
 
@@ -211,17 +231,18 @@ database_services:
 
 > [!WARNING]
 > Different versions of YAML parse booleans differently!
+>
 > - **YAML 1.1:** Words like `yes`, `no`, `y`, `n`, `on`, `off` are automatically parsed as Booleans.
 > - **YAML 1.2:** Only `true` and `false` are recognized as Booleans.
-> 
+>
 > If you are working in DevOps systems (which often use YAML 1.1 parsers), write country codes like `NO` (Norway) or states like `ON` / `OFF` in quotes to prevent them from becoming `false` or `true` values!
 
 ```yaml
 boolean_comparison:
-  unquoted_yes: yes       # Evaluates to boolean true in YAML 1.1
-  quoted_yes: "yes"       # Evaluates to string "yes"
-  norway_incorrect: NO    # Evaluates to boolean false in YAML 1.1!
-  norway_correct: "NO"    # Evaluates to string "NO"
+  unquoted_yes: yes # Evaluates to boolean true in YAML 1.1
+  quoted_yes: "yes" # Evaluates to string "yes"
+  norway_incorrect: NO # Evaluates to boolean false in YAML 1.1!
+  norway_correct: "NO" # Evaluates to string "NO"
 ```
 
 ---
@@ -229,6 +250,7 @@ boolean_comparison:
 ## 7. DevOps Real-World Configurations
 
 ### Case A: Docker Compose Structure
+
 A dictionary of services, containing a nested list of ports and volumes.
 
 ```yaml
@@ -248,6 +270,7 @@ networks:
 ```
 
 ### Case B: Multi-Document Kubernetes Configuration
+
 Use three dashes (`---`) to start a new document context in the same file. This is standard practice in Kubernetes.
 
 ```yaml
@@ -284,128 +307,3 @@ spec:
 ```
 
 ---
-
-## 🧠 Interactive YAML Quiz
-
-Test your YAML knowledge! Click each question to reveal the correct answer and explanation.
-
-### ❓ Question 1
-**Why does the following snippet crash the YAML parser?**
-```yaml
-services:
-	web:
-		image: nginx
-```
-<details>
-<summary>🔑 Click to reveal Answer</summary>
-
-> [!CAUTION]
-> **Answer:** It uses **Tabs** instead of Spaces for indentation!
-> YAML does not support tab characters for indentation. You must use spaces (usually 2 spaces per level).
-</details>
-
----
-
-### ❓ Question 2
-**What does the value of `country` evaluate to in YAML 1.1?**
-```yaml
-country: NO
-```
-<details>
-<summary>🔑 Click to reveal Answer</summary>
-
-> [!WARNING]
-> **Answer:** It evaluates to the boolean `false`!
-> Under the YAML 1.1 standard, `NO` is a boolean truthy/falsy value equivalent to `false`. To keep it as the string "Norway", write it as `"NO"`.
-</details>
-
----
-
-### ❓ Question 3
-**What character do you use to define an Anchor, and which one references it?**
-<details>
-<summary>🔑 Click to reveal Answer</summary>
-
-> [!TIP]
-> **Answer:** 
-> - Anchor: `&` (e.g. `&my_anchor`)
-> - Alias: `*` (e.g. `*my_anchor`)
-</details>
-
----
-
-### ❓ Question 4
-**In a script, if you want to keep the exact newlines and indentation blocks, which YAML block symbol should you use?**
-<details>
-<summary>🔑 Click to reveal Answer</summary>
-
-> [!TIP]
-> **Answer:** The **Literal Block Scalar (`|`)**.
-> The folded block scalar (`>`) will collapse newlines into spaces, which breaks scripts.
-</details>
-
----
-
-## 🛠️ Hands-On Practice Exercises
-
-Can you spot and fix the issues in the following exercises?
-
-### 💻 Exercise 1: Spot the Service Definition Bug
-Find the error in this Docker Compose snippet:
-```yaml
-services:
-  web-app:
-    image: node:18
-    ports:
-    - 80:80
-```
-<details>
-<summary>💡 Hint & Solution</summary>
-
-**The Bug:** The ports mapping `80:80` is unquoted and contains a colon. Additionally, the indentation of `- 80:80` should ideally be aligned with the keys under `ports` or indented further. More importantly, unquoted numbers with colons like `80:80` can sometimes be parsed as sexagesimal (base 60) numbers in YAML 1.1 (evaluating to 4800)!
-
-**Corrected Version:**
-```yaml
-services:
-  web-app:
-    image: node:18
-    ports:
-      - "80:80"  # Always quote port mappings to avoid parsing surprises!
-```
-</details>
-
----
-
-### 💻 Exercise 2: Fix the Broken Anchors
-Correct this DRY configurations file:
-```yaml
-base_config: *defaults
-  cpu: 2
-  memory: 4G
-
-worker_node:
-  <<: &defaults
-  role: "worker"
-```
-<details>
-<summary>💡 Hint & Solution</summary>
-
-**The Bug:** You cannot reference an alias (`*defaults`) before you have declared the anchor (`&defaults`). Anchors must be declared first in the document parsing order.
-
-**Corrected Version:**
-```yaml
-# Declare the anchor first
-base_config: &defaults
-  cpu: 2
-  memory: 4G
-
-# Reference the alias later
-worker_node:
-  <<: *defaults
-  role: "worker"
-```
-</details>
-
----
-
-*Keep practicing and master your YAML configurations!*
