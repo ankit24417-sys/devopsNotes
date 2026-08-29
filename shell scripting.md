@@ -124,31 +124,17 @@ To execute the file, we write =>
 
 ### 8) Conditionals
 
-#### i) For Numbers:
+- **Comparison Operators:**
+  - **Numeric Comparisons:** `-eq` (equal to), `-ne` (not equal to), `-gt` (greater than), `-ge` (greater than or equal to), `-lt` (less than), `-le` (less than or equal to)
+  - **String Comparisons:** `==` (equal to), `!=` (not equal to), `-z` (is empty), `-n` (is not empty)
 
 We use the syntax written below:
 
 ```bash
-if ((condition))    // >, <, ==, !=, >=, <=
+if [[ condition ]]    // -eq, -ne, -gt, -lt, ==, !=, etc.
 then
    #write your output
-elif ((condition))
-then
-   #write your output
-else
-   #write your output
-fi    // this is for exit the if else condition
-```
-
-#### ii) For Strings:
-
-We use the syntax written below:
-
-```bash
-if [[condition]]    // ==, !=
-then
-   #write your output
-elif [[condition]]
+elif [[ condition ]]
 then
    #write your output
 else
