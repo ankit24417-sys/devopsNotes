@@ -11,6 +11,8 @@
    - [Namespace Manifest (`namespace.yaml`)](#b-namespace-manifest-namespaceyaml)
    - [Deployment Manifest (`deployment.yaml`)](#c-deployment-manifest-deploymentyaml)
    - [Service Manifest (`service.yaml`)](#d-service-manifest-serviceyaml)
+   - [Ingress Manifest (`ingress.yaml`)](#e-ingress-manifest-ingressyaml)
+   - [Persistent Volume Manifest (`pv.yaml`)](#f-persistent-volume-manifest-pvyaml)
 5. [Essential & Highlighted `kubectl` Commands](#5-essential--highlighted-kubectl-commands)
    - [Imperative Creation & Exposing Pods](#a-imperative-creation--exposing-pods)
    - [Viewing & Inspecting Resources](#b-viewing--inspecting-resources)
@@ -55,23 +57,23 @@ Kubernetes follows a **Control Plane (Master Node) & Worker Node** architecture.
 
 ```mermaid
 graph TD
-    subgraph Control Plane (Master Node)
-        API[API Server - kube-apiserver]
-        ETCD[(etcd Database)]
-        SCH[Scheduler - kube-scheduler]
-        CM[Controller Manager - kube-controller-manager]
+    subgraph CP["Control Plane (Master Node)"]
+        API["API Server - kube-apiserver"]
+        ETCD[("etcd Database")]
+        SCH["Scheduler - kube-scheduler"]
+        CM["Controller Manager - kube-controller-manager"]
     end
 
-    subgraph Worker Node 1
-        KLT1[Kubelet]
-        KPX1[Kube-Proxy]
-        POD1[Pod]
+    subgraph WN1["Worker Node 1"]
+        KLT1["Kubelet"]
+        KPX1["Kube-Proxy"]
+        POD1["Pod"]
     end
 
-    subgraph Worker Node 2
-        KLT2[Kubelet]
-        KPX2[Kube-Proxy]
-        POD2[Pod]
+    subgraph WN2["Worker Node 2"]
+        KLT2["Kubelet"]
+        KPX2["Kube-Proxy"]
+        POD2["Pod"]
     end
 
     API --> ETCD
@@ -231,6 +233,53 @@ spec:
   - protocol: TCP
     port: 80        # Service port
     targetPort: 80  # Container port
+```
+
+### E. Ingress Manifest (`ingress.yaml`)
+Exposes HTTP and HTTPS routes from outside the cluster to services within the cluster:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-service
+            port:
+              number: 80
+```
+
+### F. Persistent Volume Manifest (`pv.yaml`)
+Provisions a cluster-wide persistent storage resource:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-local-data
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/data"
 ```
 
 ---
@@ -413,17 +462,66 @@ kubectl create secret generic db-secret --from-literal=DB_PASSWORD=SuperSecret12
 
 ## 💾 8. Persistent Volumes & Data Persistence (PV & PVC)
 
-Pods are temporary (ephemeral). If a database pod restarts, its internal disk is wiped clean. Persistent Storage solves this.
+Pods are temporary (ephemeral). If a container or pod restarts, its local filesystem state is destroyed. Persistent storage decouples data lifecycle from pod lifecycle so data persists across pod restarts and reschedule events.
 
-- **PersistentVolume (PV)**: Cluster-level storage resource provisioned manually or dynamically.
-- **PersistentVolumeClaim (PVC)**: Storage request submitted by a Pod.
+### 🧩 Storage Architecture Breakdown:
+1. **PersistentVolume (PV)**: A physical or virtual storage resource provisioned in the cluster (e.g., host path, AWS EBS, NFS, CSI). It exists independently of any individual Pod.
+2. **PersistentVolumeClaim (PVC)**: A request for storage submitted by a workload/user. Specifies storage capacity, access modes, and optional storage class.
+3. **StorageClass**: Defines the provisioner and parameters for dynamic volume provisioning.
+
+---
+
+### A. Persistent Volume Manifest (`pv.yaml`)
+
+This manifest provisions a static 10 GB Persistent Volume in the cluster:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  labels:
+    type: local-storage
+    app: mysql
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/data/mysql"
+```
+
+#### 📖 Explanation of Key Parameters:
+- **`capacity.storage: 10Gi`**: Specifies the total storage volume size (10 Gigabytes).
+- **`volumeMode: Filesystem`**: Mounts the volume as a formatted filesystem directory inside containers (Alternative: `Block` for raw block devices).
+- **`accessModes`**:
+  - `ReadWriteOnce` (`RWO`): Volume can be mounted as read-write by a single node.
+  - `ReadOnlyMany` (`ROX`): Volume can be mounted as read-only by many nodes simultaneously.
+  - `ReadWriteMany` (`RWX`): Volume can be mounted as read-write by many nodes simultaneously (e.g., NFS or cloud file storage).
+- **`persistentVolumeReclaimPolicy`**:
+  - `Retain`: Storage and data remain intact after PVC deletion for manual administrator cleanup.
+  - `Delete`: Underlying storage asset (e.g., AWS EBS volume) is automatically deleted when PVC is deleted.
+  - `Recycle`: Performs basic scrub (`rm -rf /volume/*`) to make volume available for new claim (deprecated).
+- **`hostPath`**: Mounts local directory `/mnt/data/mysql` on worker node (primarily used for single-node testing/Minikube).
+
+---
+
+### B. Persistent Volume Claim Manifest (`pvc.yaml`)
+
+Submitted by workloads to request and bind storage matching access mode and capacity:
 
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mysql-pvc
+  namespace: default
 spec:
+  storageClassName: manual
   accessModes:
     - ReadWriteOnce
   resources:
@@ -431,38 +529,127 @@ spec:
       storage: 10Gi
 ```
 
+#### 📖 Explanation of Key Parameters:
+- **`storageClassName: manual`**: Matches the `storageClassName` defined in `pv.yaml` for static binding.
+- **`resources.requests.storage: 10Gi`**: Requests at least 10 GB of storage. Kubernetes finds a matching PV and binds them together (`STATUS: Bound`).
+
+---
+
+### C. Mounting PVC in a Pod / Deployment (`pod-pvc.yaml`)
+
+Attaches the PVC to a Pod's container filesystem:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-pod
+spec:
+  containers:
+  - name: mysql
+    image: mysql:8.0
+    env:
+    - name: MYSQL_ROOT_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-secret
+          key: DB_PASSWORD
+    volumeMounts:
+    - mountPath: /var/lib/mysql
+      name: mysql-storage
+  volumes:
+  - name: mysql-storage
+    persistentVolumeClaim:
+      claimName: mysql-pvc
+```
+
+#### 📖 Explanation of Volume Mount Fields:
+- **`spec.volumes`**: Declares a volume named `mysql-storage` bound to claim `mysql-pvc`.
+- **`spec.containers[*].volumeMounts`**: Mounts `mysql-storage` volume into container target path `/var/lib/mysql`.
+
+---
+
+### 🛠️ Useful `kubectl` Commands for PV & PVC
+
+```bash
+# 🔹 List Persistent Volumes across cluster
+kubectl get pv
+
+# 🔹 List Persistent Volume Claims in current namespace
+kubectl get pvc
+
+# 🔹 Inspect PV details and binding status
+kubectl describe pv mysql-pv
+
+# 🔹 Inspect PVC details and bound PV name
+kubectl describe pvc mysql-pvc
+```
+
 ---
 
 ## 🌐 9. Ingress & Ingress Controllers
 
 ### ❓ What is Ingress?
-**Ingress** acts as a smart entry gateway / router for your Kubernetes cluster. It exposes HTTP and HTTPS routes from outside the cluster to internal Services based on domain names (`example.com`) or path rules (`/api`).
+**Ingress** acts as an intelligent HTTP/HTTPS reverse proxy and application gateway / layer 7 load balancer for Kubernetes clusters. Instead of creating separate external cloud load balancers (`NodePort` or `LoadBalancer`) for every service (which is expensive and difficult to manage), Ingress lets you consolidate routing rules into a single resource under domain names (`myapp.com`) or paths (`/api`).
 
 ```
-Internet --> [ Ingress Controller ] --> Ingress Rules --> Service --> Pods
+Internet (HTTP/HTTPS) 
+        │
+        ▼
+┌───────────────────────────┐
+│    Ingress Controller     │  (e.g., NGINX, Traefik, HAProxy, AWS ALB)
+└─────────────┬─────────────┘
+              │ Evaluates Ingress Rules
+              ▼
+    ┌───────────────────┐
+    │  Ingress Resource │  (Rules: host, path, SSL certificates)
+    └─────────┬─────────┘
+              │ Routes Traffic
+     ┌────────┴────────┐
+     ▼                 ▼
+[ Service A ]    [ Service B ]
+     │                 │
+     ▼                 ▼
+  [ Pods ]          [ Pods ]
 ```
 
-### Setup Ingress Controller via Helm:
+---
+
+### 📦 Setup Ingress Controller via Helm
+
+An Ingress resource manifest does nothing on its own without an active **Ingress Controller** running inside the cluster to process it:
 
 ```bash
 # 🔹 Add NGINX Ingress Repository
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 
-# 🔹 Install Ingress Controller
-helm install ingress-nginx ingress-nginx/ingress-nginx
+# 🔹 Install NGINX Ingress Controller
+helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
 ```
 
-### Ingress Manifest (`ingress.yaml`):
+---
+
+### 📄 Ingress Manifest (`ingress.yaml`)
+
+This complete manifest configures host-based routing, path-based routing, NGINX annotations, and TLS/SSL termination:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: web-ingress
+  name: main-ingress
+  namespace: default
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-body-size: "8m"
 spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - myapp.local
+    secretName: myapp-tls-secret
   rules:
   - host: myapp.local
     http:
@@ -471,9 +658,50 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: nginx-service
+            name: frontend-service
             port:
               number: 80
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: backend-api-service
+            port:
+              number: 8080
+```
+
+---
+
+### 📖 Comprehensive Parameter Breakdown:
+
+- **`annotations`**: Key-value pairs used to pass custom directives to the Ingress Controller implementation:
+  - `ssl-redirect: "true"`: Automatically redirects HTTP requests (port 80) to HTTPS (port 443).
+  - `rewrite-target: /$2`: Rewrites incoming request path (e.g. `/api/users` is rewritten to `/users` before forwarding to the backend API service).
+  - `proxy-body-size: "8m"`: Sets maximum allowed client request payload body size.
+- **`ingressClassName: nginx`**: Specifies that the `nginx-ingress-controller` handles and executes this manifest.
+- **`tls`**: Configures HTTPS certificate termination.
+  - `hosts`: Array of domain names protected by the TLS certificate.
+  - `secretName`: References a Kubernetes Secret (`type: kubernetes.io/tls`) containing `tls.crt` and `tls.key`.
+- **`rules.host`**: Domain name (`myapp.local`) matching the incoming HTTP `Host` header.
+- **`paths.pathType`**:
+  - `Prefix`: Matches URL path prefix (`/` matches `/`, `/about`, `/contact`).
+  - `Exact`: Matches exact URL path string match.
+  - `ImplementationSpecific`: Matches paths based on controller-specific regex logic.
+- **`backend.service`**: Directs matching network traffic to an internal cluster Service name and port.
+
+---
+
+### 🛠️ Useful `kubectl` Commands for Ingress
+
+```bash
+# 🔹 List all Ingress rules in current namespace
+kubectl get ingress
+
+# 🔹 Inspect Ingress rules, backend endpoints, and assigned IP/Hostname
+kubectl describe ingress main-ingress
+
+# 🔹 Test Ingress host resolution locally using cURL
+curl -H "Host: myapp.local" http://<INGRESS_CONTROLLER_IP>/
 ```
 
 ---
@@ -678,10 +906,10 @@ kind create cluster --name dev-cluster
 
 ```mermaid
 flowchart TD
-    A[Build Local Docker Image] --> B[Push to AWS ECR]
-    B --> C[Create EKS Cluster via eksctl]
-    C --> D[Deploy to EKS using kubectl]
-    D --> E[Expose via LoadBalancer Service]
+    A["Build Local Docker Image"] --> B["Push to AWS ECR"]
+    B --> C["Create EKS Cluster via eksctl"]
+    C --> D["Deploy to EKS using kubectl"]
+    D --> E["Expose via LoadBalancer Service"]
 ```
 
 ```bash
@@ -774,7 +1002,7 @@ A **Custom Resource Definition (CRD)** is a powerful feature in Kubernetes that 
 
 ### 📄 1. CRD Definition Manifest (`crd.yaml`)
 
-This manifest defines a custom object kind `CronTab` under the API group `stable.example.com`:
+This manifest defines a custom object schema `CronTab` under API group `stable.example.com`:
 
 ```yaml
 apiVersion: apiextensions.k8s.io/v1
@@ -809,42 +1037,72 @@ spec:
     - ct
 ```
 
+#### 📖 CRD Definition Breakdown:
+- **`metadata.name`**: Must follow the convention `<plural>.<group>` (`crontabs.stable.example.com`).
+- **`spec.group`**: Specifies the custom REST API endpoint namespace (`stable.example.com`).
+- **`spec.versions`**: Array of API versions (`v1`). `served: true` activates the version endpoint, `storage: true` designates it as the storage version in `etcd`.
+- **`spec.scope`**: `Namespaced` (objects exist within specific namespaces) or `Cluster` (cluster-wide objects like Nodes/Namespaces).
+- **`openAPIV3Schema`**: Enforces strict structural typing and validation rules (`string`, `integer`) for specs submitted by custom resources.
+- **`spec.names`**: Establishes how `kubectl` identifies custom objects (`kind: CronTab`, `shortNames: ct`).
+
 ---
 
-### 📄 2. Custom Resource Manifest (`my-crontab.yaml`)
+### 📄 2. Custom Resource Creation Manifest (`custom-resource.yaml`)
 
-Once the CRD is applied, users can create instances of the custom resource just like native Kubernetes objects:
+Once the CRD manifest is registered in the cluster (`kubectl apply -f crd.yaml`), users can create instances of the new Custom Resource type:
 
 ```yaml
 apiVersion: stable.example.com/v1
 kind: CronTab
 metadata:
-  name: my-cron-object
+  name: nightly-backup-cron
   namespace: default
+  labels:
+    app: database-backup
 spec:
-  cronSpec: "* * * * *"
-  image: my-awesome-cron-image:v1.0
+  cronSpec: "0 2 * * *"
+  image: backup-worker:v2.1
   replicas: 2
 ```
 
 ---
 
-### 🛠️ Useful `kubectl` Commands for CRDs
+### 📖 Step-by-Step Custom Resource Creation & Execution Flow:
+
+1. **Schema Definition**: Developer writes `crd.yaml` to define custom API endpoints and OpenAPI v3 validation schema.
+2. **CRD Registration**: Cluster admin registers the CRD (`kubectl apply -f crd.yaml`). Kubernetes API Server dynamically exposes a new REST endpoint at `/apis/stable.example.com/v1/namespaces/default/crontabs`.
+3. **Custom Resource Creation**: User applies `custom-resource.yaml`. The API Server validates incoming parameters (`cronSpec`, `image`, `replicas`) against the schema registered in `etcd`.
+4. **Operator / Controller Reconciliation Loop**:
+   - A dedicated **Custom Controller** or **Operator** running in the cluster watches the `crontabs.stable.example.com` endpoint for events (`ADDED`, `MODIFIED`, `DELETED`).
+   - Upon detecting `nightly-backup-cron`, the controller triggers its logic: parsing `"0 2 * * *"` and `"backup-worker:v2.1"` to automatically spawn native Kubernetes Pods or CronJobs.
+
+---
+
+### 🛠️ Useful `kubectl` Commands for CRDs & Custom Resources
 
 ```bash
-# 🔹 List all installed CRDs in the cluster
+# 🔹 Register CRD schema in cluster
+kubectl apply -f crd.yaml
+
+# 🔹 Create Custom Resource instance
+kubectl apply -f custom-resource.yaml
+
+# 🔹 List all registered CRDs in cluster
 kubectl get crds
 
-# 🔹 Inspect the schema and details of a specific CRD
+# 🔹 Inspect schema validation rules of a specific CRD
 kubectl describe crd crontabs.stable.example.com
 
-# 🔹 Get custom instances (using full name or short name)
+# 🔹 List custom resource instances (using kind or shortName)
 kubectl get crontabs
 kubectl get ct
 
-# 🔹 Describe a specific Custom Resource instance
-kubectl describe ct my-cron-object
+# 🔹 Inspect details of a specific Custom Resource instance
+kubectl describe ct nightly-backup-cron
 
-# 🔹 Delete a CRD (Warning: Deletes the CRD definition AND all associated Custom Resource instances!)
+# 🔹 Delete a specific Custom Resource instance
+kubectl delete ct nightly-backup-cron
+
+# 🔹 Delete a CRD (Warning: Deletes CRD definition AND ALL associated Custom Resource instances!)
 kubectl delete crd crontabs.stable.example.com
 ```
