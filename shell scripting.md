@@ -232,23 +232,133 @@ Arguments are the value which are passed to function when calling it:
 
 ---
 
-### 12) Error Handling
+### 12) Error Handling & Strict Mode (`set -eou pipefail`)
 
-To handle errors in shell script, we use the `if` Conditionals.
+By default, Bash continues executing a script line-by-line even if a command fails. To make scripts robust, secure, and production-ready, we use **Strict Mode** with the `set` command.
 
-- `!` => tell us that there is an error on the code
+#### i) The `set -eou pipefail` Strict Mode
+
+Placing `set -eou pipefail` at the top of your script (right below the shebang `#!/bin/bash`) forces Bash to fail fast whenever something goes wrong.
 
 ```bash
-if ! command ;
-then
-   #output message
-   exit 1
-fi
+#!/bin/bash
+set -eou pipefail
 ```
+
+**Detailed Breakdown of Options:**
+
+- **`set -e` (Exit on Error):**
+  - **What it does:** Instantly terminates script execution if any command returns a non-zero (failure) exit code.
+  - **Why it matters:** Prevents a script from executing dangerous downstream commands (like deleting files) if a prerequisite command (like changing directory) fails.
+  - **Exception:** Commands used in conditional statements (e.g., `if command; then ...`, `command || true`, or `while`) will not trigger an exit.
+
+- **`set -o pipefail` (Pipeline Failure Handling):**
+  - **What it does:** By default, in a pipeline (`cmd1 | cmd2 | cmd3`), Bash only returns the exit status of the *last* command (`cmd3`). `set -o pipefail` ensures the entire pipeline returns a failure status if *any* command in the chain fails.
+  - **Why it matters:** If `cmd1` fails but `cmd2` succeeds, default Bash ignores `cmd1`'s failure. `pipefail` catches it.
+
+- **`set -u` (Unset Variable Error):**
+  - **What it does:** Treats references to uninitialized or unset variables as an error and exits immediately.
+  - **Why it matters:** Prevents catastrophic bugs like `rm -rf "$DIRECTORY/"` accidentally executing as `rm -rf /` if `$DIRECTORY` is misspelled or unassigned.
+  - **Workaround:** If a variable might be optional, use default expansion: `${VAR:-default_value}`.
+
+> [!TIP]
+> **Debugging Mode (`set -x` / `set -eoux pipefail`):**
+> Adding `-x` enables **tracing mode**. It prints every command along with its expanded arguments to the terminal before executing it, making script debugging much easier.
+
+#### ii) Manual Error Handling (`$?` & `if !`)
+
+Besides Strict Mode, you can manually catch and handle errors using conditionals:
+
+- **Using `!` (NOT operator):**
+  ```bash
+  if ! mkdir /protected_directory; then
+     echo "Failed to create directory!"
+     exit 1
+  fi
+  ```
+- **Checking Exit Status (`$?`):**
+  ```bash
+  ping -c 1 google.com
+  if [ $? -ne 0 ]; then
+     echo "Network is down!"
+     exit 1
+  fi
+  ```
 
 ---
 
-### 13) Fallback & Chaining Operators
+### 13) Linux Standard Streams & Redirections (0, 1, 2 & `>& /dev/null`)
+
+In Linux, every process uses three standard file descriptors (streams) for input, output, and error handling:
+
+| File Descriptor | Stream Name | Description | Default Source / Destination |
+| :--- | :--- | :--- | :--- |
+| **`0`** | **stdin** (Standard Input) | Data fed into a command | Keyboard / Input file |
+| **`1`** | **stdout** (Standard Output) | Normal output of a command | Terminal screen |
+| **`2`** | **stderr** (Standard Error) | Error messages & diagnostics | Terminal screen |
+
+#### i) Redirection Operators Summary
+
+- **`>`** (Redirect stdout): Overwrites target file with stdout.
+  - *Example:* `echo "Hello" > output.txt`
+- **`>>`** (Append stdout): Appends stdout to the end of a file.
+  - *Example:* `echo "Log entry" >> log.txt`
+- **`<`** (Redirect stdin): Reads stdin from a file instead of keyboard.
+  - *Example:* `cat < input.txt`
+- **`2>`** (Redirect stderr): Redirects error messages to a file.
+  - *Example:* `ls /nonexistent 2> error.log`
+- **`2>>`** (Append stderr): Appends error messages to a file.
+  - *Example:* `ls /nonexistent 2>> error.log`
+
+#### ii) Understanding `/dev/null` and Output Suppression (`>& /dev/null`)
+
+`/dev/null` is a special virtual device file in Linux known as the **"black hole"**. Any data written to it is permanently discarded.
+
+##### 1. Syntax Variations
+- **`>/dev/null 2>&1` (POSIX standard syntax):**
+  - `>/dev/null` redirects stdout (descriptor 1) to `/dev/null`.
+  - `2>&1` redirects stderr (descriptor 2) to wherever stdout is currently pointing (`/dev/null`).
+- **`>& /dev/null` or `&> /dev/null` (Bash Shorthand):**
+  - Concise syntax in Bash to redirect both stdout (1) and stderr (2) to `/dev/null` simultaneously.
+
+##### 2. Practical Linux Command Use Cases
+
+- **Silent Command Execution (Check command existence without output):**
+  ```bash
+  if command -v git >/dev/null 2>&1; then
+      echo "Git is installed!"
+  fi
+  ```
+
+- **Suppressing Error Messages Only:**
+  ```bash
+  # Search system files while ignoring 'Permission denied' stderr messages
+  find / -name "config" 2>/dev/null
+  ```
+
+- **Logging stdout & stderr to Separate Files:**
+  ```bash
+  # Save clean logs to app.log and errors to error.log
+  ./deploy.sh > app.log 2> error.log
+  ```
+
+- **Combining stdout & stderr into One Log File:**
+  ```bash
+  # Redirect both normal output and errors into combined.log
+  ./deploy.sh > combined.log 2>&1
+  # Or using Bash shortcut:
+  ./deploy.sh &> combined.log
+  ```
+
+- **Feeding Input via File (stdin redirection):**
+  ```bash
+  # Send SQL commands from file directly into MySQL database
+  mysql -u root -p my_database < schema.sql
+  ```
+
+---
+
+### 14) Fallback & Chaining Operators
 
 - `=====> fallback operator => ||`
 - `cd ankit || mkdir ankit` => means go to ankit dir, if not existed then create it
